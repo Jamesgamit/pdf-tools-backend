@@ -1,16 +1,11 @@
-// api/compress.js
-// Updated with your Netlify Domain
-
 const sharp = require('sharp');
 const multer = require('multer');
 
-// Multer setup (File receive karne ke liye)
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 4 * 1024 * 1024 } // 4MB Limit
+  limits: { fileSize: 4 * 1024 * 1024 }
 });
 
-// Helper function to handle Multer in Vercel
 function runMiddleware(req, res, fn) {
   return new Promise((resolve, reject) => {
     fn(req, res, (result) => {
@@ -24,10 +19,9 @@ function runMiddleware(req, res, fn) {
 
 export default async function handler(req, res) {
   // ----------------------------------------------------
-  // 1. SECURITY LOCK (Sirf aapki website ke liye)
+  // FIXED: LOCK OPEN KAR DIYA HAI (Change back to '*')
   // ----------------------------------------------------
-  // Note: Maine last ka '/' hata diya hai, wo origin me nahi lagta.
-  res.setHeader('Access-Control-Allow-Origin', 'https://dailykit.netlify.app');
+  res.setHeader('Access-Control-Allow-Origin', '*');
   
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -36,26 +30,22 @@ export default async function handler(req, res) {
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   );
 
-  // Handle preflight request (Browser ki checking)
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
   }
 
   try {
-    // 2. File Receive karo
     await runMiddleware(req, res, upload.single('file'));
 
     if (!req.file) {
-      return res.status(400).json({ error: 'Koi file nahi mili. Please upload an image.' });
+      return res.status(400).json({ error: 'No file found. Please upload an image.' });
     }
 
-    // 3. Image Compress karo (Sharp library)
     const compressedBuffer = await sharp(req.file.buffer)
-      .jpeg({ quality: 60, mozjpeg: true }) // Quality 60%
+      .jpeg({ quality: 60, mozjpeg: true })
       .toBuffer();
 
-    // 4. File wapas bhejo (Base64 string bankar)
     const base64Image = compressedBuffer.toString('base64');
     const dataUrl = `data:image/jpeg;base64,${base64Image}`;
 
@@ -67,7 +57,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Server Error:", error);
     res.status(500).json({ error: error.message });
   }
 }
