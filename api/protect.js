@@ -1,7 +1,7 @@
-// Force Rebuild: Updated pdf-lib to 1.17.1
-import { PDFDocument } from 'pdf-lib';
-import formidable from 'formidable';
-import fs from 'fs';
+// Remove "import" to stop tree-shaking issues
+const { PDFDocument } = require('pdf-lib');
+const formidable = require('formidable');
+const fs = require('fs');
 
 export const config = {
   api: { bodyParser: false },
@@ -18,7 +18,16 @@ export default async function handler(req, res) {
 
   try {
     const form = formidable({ maxFileSize: 10 * 1024 * 1024, keepExtensions: true });
-    const [fields, files] = await form.parse(req);
+    
+    // Promise wrapper for formidable
+    const parseForm = (req) => new Promise((resolve, reject) => {
+      form.parse(req, (err, fields, files) => {
+        if (err) reject(err);
+        else resolve({ fields, files });
+      });
+    });
+
+    const { fields, files } = await parseForm(req);
 
     const password = Array.isArray(fields.password) ? fields.password[0] : fields.password;
     const uploadedFile = Array.isArray(files.file) ? files.file[0] : files.file;
@@ -28,9 +37,11 @@ export default async function handler(req, res) {
     }
 
     const fileBuffer = fs.readFileSync(uploadedFile.filepath);
-    const pdfDoc = await PDFDocument.load(fileBuffer);
+    
+    // Explicitly loading with ignoreEncryption=true initially just to load the structure
+    const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
 
-    // This function requires pdf-lib > 1.7.0
+    // Encryption Step
     pdfDoc.encrypt({
       userPassword: password,
       ownerPassword: password,
