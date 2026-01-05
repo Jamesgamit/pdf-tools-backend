@@ -1,10 +1,8 @@
-// 1. Formidable ko IMPORT se layenge (Ye parsing ke liye best hai)
-import formidable from 'formidable';
-import fs from 'fs';
-
-// 2. PDF-Lib ko REQUIRE se layenge (Taaki encrypt function delete na ho)
-// Ye "Tree-shaking" issue ko 100% rok dega
+// 1. Force CommonJS (Sab kuch 'require' se layenge)
 const { PDFDocument } = require('pdf-lib');
+// Note: Formidable se hum sidha class nikalenge taaki error na aaye
+const { IncomingForm } = require('formidable'); 
+const fs = require('fs');
 
 export const config = {
   api: {
@@ -22,13 +20,13 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // --- FILE PARSING ---
-    const form = formidable({
+    // --- FILE PARSING (Universal Way) ---
+    // Hum 'formidable()' function ki jagah 'new IncomingForm' class use karenge
+    const form = new IncomingForm({
       maxFileSize: 10 * 1024 * 1024, // 10MB
       keepExtensions: true
     });
 
-    // Promise Wrapper taaki code saaf rahe
     const parseForm = (req) => new Promise((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
         if (err) reject(err);
@@ -38,7 +36,6 @@ export default async function handler(req, res) {
 
     const { fields, files } = await parseForm(req);
 
-    // Data Safely Nikalna
     const password = Array.isArray(fields.password) ? fields.password[0] : fields.password;
     const uploadedFile = Array.isArray(files.file) ? files.file[0] : files.file;
 
@@ -48,10 +45,11 @@ export default async function handler(req, res) {
 
     // --- PDF PROTECTION ---
     const fileBuffer = fs.readFileSync(uploadedFile.filepath);
+    
+    // Load PDF (Ignore encryption initially to be safe)
+    const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
 
-    // Yaha 'require' wala PDFDocument use hoga
-    const pdfDoc = await PDFDocument.load(fileBuffer);
-
+    // Encrypt
     pdfDoc.encrypt({
       userPassword: password,
       ownerPassword: password,
