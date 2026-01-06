@@ -1,7 +1,6 @@
-// 1. Force CommonJS (Sab kuch 'require' se layenge)
+// 1. Sab kuch 'require' se layenge (Stability ke liye)
+const { IncomingForm } = require('formidable'); // <--- Ye hai Asli Fix (Class Import)
 const { PDFDocument } = require('pdf-lib');
-// Note: Formidable se hum sidha class nikalenge taaki error na aaye
-const { IncomingForm } = require('formidable'); 
 const fs = require('fs');
 
 export const config = {
@@ -20,13 +19,14 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // --- FILE PARSING (Universal Way) ---
-    // Hum 'formidable()' function ki jagah 'new IncomingForm' class use karenge
+    // --- FILE PARSING (Correct Way for Formidable v3) ---
+    // Ab hum 'formidable()' function nahi, balki 'new IncomingForm' class use kar rahe hain
     const form = new IncomingForm({
-      maxFileSize: 10 * 1024 * 1024, // 10MB
+      maxFileSize: 10 * 1024 * 1024, // 10MB limit
       keepExtensions: true
     });
 
+    // Promise wrapper taaki async/await use kar sakein
     const parseForm = (req) => new Promise((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
         if (err) reject(err);
@@ -36,6 +36,7 @@ export default async function handler(req, res) {
 
     const { fields, files } = await parseForm(req);
 
+    // Data Safely Nikalna
     const password = Array.isArray(fields.password) ? fields.password[0] : fields.password;
     const uploadedFile = Array.isArray(files.file) ? files.file[0] : files.file;
 
@@ -45,11 +46,11 @@ export default async function handler(req, res) {
 
     // --- PDF PROTECTION ---
     const fileBuffer = fs.readFileSync(uploadedFile.filepath);
-    
-    // Load PDF (Ignore encryption initially to be safe)
+
+    // Load PDF
     const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
 
-    // Encrypt
+    // Encrypt (Password Lagana)
     pdfDoc.encrypt({
       userPassword: password,
       ownerPassword: password,
