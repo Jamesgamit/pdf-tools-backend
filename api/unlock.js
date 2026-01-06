@@ -5,11 +5,12 @@ import fs from 'fs';
 export const config = {
   api: {
     bodyParser: false,
+    responseLimit: false, // Allow sending large files back
   },
 };
 
 export default async function handler(req, res) {
-  // --- CORS HEADERS (Security Access) ---
+  // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -18,50 +19,64 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // --- 1. Parse File & Password ---
+    console.log("1. Starting Unlock Request...");
+
     const form = formidable({
-      maxFileSize: 20 * 1024 * 1024, // 20MB limit
+      maxFileSize: 20 * 1024 * 1024, // 20MB Limit
       keepExtensions: true
     });
 
     const [fields, files] = await form.parse(req);
 
+    // Securely extract data
     const password = Array.isArray(fields.password) ? fields.password[0] : fields.password;
     const uploadedFile = Array.isArray(files.file) ? files.file[0] : files.file;
 
-    if (!password || !uploadedFile) {
-      return res.status(400).json({ error: 'File and password are required' });
-    }
+    if (!uploadedFile) throw new Error("File not received");
+    if (!password) throw new Error("Password not received");
+
+    console.log(`2. File Received: ${uploadedFile.originalFilename}, Size: ${uploadedFile.size}`);
 
     const fileBuffer = fs.readFileSync(uploadedFile.filepath);
 
-    // --- 2. UNLOCKING LOGIC ---
+    // --- DECRYPTION LOGIC ---
     let pdfDoc;
     try {
-      // Try to load the PDF using the provided password
-      // This is where the magic happens. If password is correct, it opens.
-      pdfDoc = await PDFDocument.load(fileBuffer, { password: password });
+      // Load PDF with password
+      pdfDoc = await PDFDocument.load(fileBuffer, { 
+        password: password,
+        ignoreEncryption: false 
+      });
+      console.log("3. PDF Loaded & Decrypted Successfully");
     } catch (e) {
-      console.error("Load Failed:", e);
-      // Differentiate errors
+      console.error("Decryption Failed:", e.message);
       if (e.message.includes('password')) {
-        return res.status(401).json({ error: 'Incorrect Password! Please try again.' });
+        return res.status(401).json({ error: 'INCORRECT_PASSWORD' });
       }
-      return res.status(422).json({ error: 'Encryption method not supported or file is damaged.' });
+      if (e.message.includes('supported') || e.message.includes('Encryption')) {
+        return res.status(422).json({ error: 'UNSUPPORTED_ENCRYPTION' });
+      }
+      throw e; // Throw other errors to main catch
     }
 
-    // --- 3. Save as New PDF (Without Password) ---
-    // When we save a loaded document, pdf-lib removes the password by default
+    // Save as clean PDF (Removes protection)
     const pdfBytes = await pdfDoc.save();
     const outputBuffer = Buffer.from(pdfBytes);
 
-    // --- 4. Send Response ---
+    console.log("4. PDF Saved & Ready to Send");
+
+    // Send Response
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="unlocked-${uploadedFile.originalFilename}"`);
+    res.setHeader('Content-Length', outputBuffer.length);
+    
     return res.status(200).send(outputBuffer);
 
   } catch (error) {
-    console.error('Unlock API Error:', error);
-    return res.status(500).json({ error: 'Server Error: ' + error.message });
+    console.error('CRITICAL SERVER ERROR:', error);
+    return res.status(500).json({ 
+      error: 'SERVER_ERROR', 
+      details: error.message 
+    });
   }
 }

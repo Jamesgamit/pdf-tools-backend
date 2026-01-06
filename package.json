@@ -20,9 +20,9 @@
   "homepage": "https://github.com/Jamesgamit/pdf-tools-backend#readme",
   "dependencies": {
     "adm-zip": "^0.5.16",
-    "formidable": "^3.5.4",
+    "formidable": "3.5.1",
     "multer": "^2.0.2",
-    "pdf-lib": "^1.17.1",
+    "pdf-lib": "1.17.1",
     "pdf-parse": "^2.4.5",
     "sharp": "^0.34.5"
   }
