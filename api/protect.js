@@ -1,5 +1,12 @@
 const { IncomingForm } = require('formidable');
-const { PDFDocument } = require('pdf-lib');
+// Try to require the full UMD build first (safest for Vercel), fallback to standard
+let PDFLib;
+try {
+  PDFLib = require('pdf-lib/dist/pdf-lib.umd.js');
+} catch (e) {
+  PDFLib = require('pdf-lib');
+}
+const { PDFDocument } = PDFLib;
 const fs = require('fs');
 
 export const config = { api: { bodyParser: false } };
@@ -29,13 +36,12 @@ export default async function handler(req, res) {
 
     const fileBuffer = fs.readFileSync(uploadedFile.filepath);
     
-    // Log version check (internal debug)
-    console.log('PDF-Lib Loading...');
-    
+    // Check if encrypt exists
     const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
 
     if (typeof pdfDoc.encrypt !== 'function') {
-      throw new Error('CRITICAL: pdf-lib version mismatch. Encrypt function missing.');
+      const pkg = require('pdf-lib/package.json');
+      throw new Error(`Critical Error: pdf-lib version is ${pkg.version}, but encrypt() is missing. Deployment failed to update.`);
     }
 
     pdfDoc.encrypt({ userPassword: password, ownerPassword: password, permissions: { printing: 'highResolution', modifying: false, copying: false, annotating: false } });
@@ -49,6 +55,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('API Error:', error);
-    return res.status(500).json({ error: 'Failed to protect PDF', details: error.message });
+    return res.status(500).json({ error: 'Protection Failed', details: error.message });
   }
 }
