@@ -21,7 +21,7 @@ function runMiddleware(req, res, fn) {
 
 export default async function handler(req, res) {
   // Lock Open Rakha hai (*) testing ke liye
-  res.setHeader('Access-Control-Allow-Origin', 'https://jacsubir.netlify.app');
+  res.setHeader('Access-Control-Allow-Origin', 'https://jacsubir.com');
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');

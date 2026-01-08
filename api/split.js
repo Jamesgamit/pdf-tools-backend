@@ -19,7 +19,7 @@ function runMiddleware(req, res, fn) {
 
 export default async function handler(req, res) {
   // CORS Testing ke liye Open rakha hai (*)
-  res.setHeader('Access-Control-Allow-Origin', 'https://jacsubir.netlify.app');
+  res.setHeader('Access-Control-Allow-Origin', 'https://jacsubir.com');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
