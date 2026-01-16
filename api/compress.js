@@ -1,13 +1,18 @@
 const sharp = require('sharp');
 const multer = require('multer');
 
-// File receive karne ka setup
+// 1. IMPORTANT: Next.js ka default parser band karna jaruri hai
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 4 * 1024 * 1024 } // 4MB Limit
+  limits: { fileSize: 4 * 1024 * 1024 }
 });
 
-// Helper function
 function runMiddleware(req, res, fn) {
   return new Promise((resolve, reject) => {
     fn(req, res, (result) => {
@@ -20,8 +25,14 @@ function runMiddleware(req, res, fn) {
 }
 
 export default async function handler(req, res) {
-  // Lock Open Rakha hai (*) testing ke liye
-  res.setHeader('Access-Control-Allow-Origin', 'https://jacsubir.com/');
+  // 2. SMART CORS FIX: Check karo ki request kaha se aa rahi hai
+  const allowedOrigins = ['https://jacsubir.com', 'https://www.jacsubir.com'];
+  const origin = req.headers.origin;
+
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
@@ -38,18 +49,13 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No file found.' });
     }
 
-    // --- QUALITY LOGIC START ---
-    // Frontend se jo number aayega (30, 60, 90) use yaha padhenge
     let qualityLevel = parseInt(req.body.quality);
-
-    // Agar koi number na aaye, to default 60 maano
     if (!qualityLevel || isNaN(qualityLevel)) {
       qualityLevel = 60;
     }
-    // --- QUALITY LOGIC END ---
 
     const compressedBuffer = await sharp(req.file.buffer)
-      .jpeg({ quality: qualityLevel, mozjpeg: true }) 
+      .jpeg({ quality: qualityLevel, mozjpeg: true })
       .toBuffer();
 
     const base64Image = compressedBuffer.toString('base64');
